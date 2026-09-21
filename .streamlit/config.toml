@@ -1,1 +1,3 @@
-
+[server]
+maxUploadFolderSequence = 1000
+maxUploadSize = 1000

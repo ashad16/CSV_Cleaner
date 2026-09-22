@@ -64,10 +64,15 @@ def load_csv_safely(uploaded_file):
 
 
 uploaded_files = st.file_uploader(
-    "Upload CSV", type=["csv"], accept_multiple_files=True
+    "Upload CSV (Max 20 files)", type=["csv"], accept_multiple_files=True
 )
 
 if uploaded_files:
+    # --- File Limit Validation ---
+    if len(uploaded_files) > 20:
+        st.error("⚠️ Maximum 20 files allowed at a time. Please remove extra files and try again.")
+        st.stop()  # Prevents any downstream code execution
+
     processed_files = {}
 
     # Step 1: Process all files and store clean CSV string in memory

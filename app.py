@@ -68,10 +68,18 @@ uploaded_files = st.file_uploader(
 )
 
 if uploaded_files:
+    # Files ka total count variable mein save kiya
+    total_files = len(uploaded_files)
+
     # --- File Limit Validation ---
-    if len(uploaded_files) > 20:
-        st.error("⚠️ Maximum 20 files allowed at a time. Please remove extra files and try again.")
+    if total_files > 20:
+        st.error(
+            f"⚠️ Maximum 20 files allowed at a time. You uploaded {total_files} files. Please remove extra files and try again."
+        )
         st.stop()  # Prevents any downstream code execution
+
+    # --- File Count Metric Badge ---
+    st.info(f"📁 **Total Files Uploaded:** {total_files}")
 
     processed_files = {}
 
@@ -112,11 +120,11 @@ if uploaded_files:
                 f"cleaned_{file_name}", file_info["csv_data"]
             )
 
-    st.success("All files processed successfully!")
+    st.success(f"✅ Successfully processed {total_files} file(s)!")
 
-    # Top ZIP download button for ALL files
+    # Top ZIP download button with file count label
     st.download_button(
-        label="📦 Download All Cleaned CSVs as ZIP",
+        label=f"📦 Download All {total_files} Cleaned CSVs as ZIP",
         data=zip_buffer.getvalue(),
         file_name="cleaned_csv_files.zip",
         mime="application/zip",

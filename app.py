@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 st.set_page_config(page_title="CSV Cleaner", layout="wide")
-st.title("CSV Header Cleaner & Modifier")
+st.title("Scopus Format Modifier")
 
 # List of columns to drop
 columns_to_remove = [

@@ -6,8 +6,8 @@ import streamlit as st
 st.set_page_config(page_title="CSV Cleaner", layout="wide")
 st.title("Scopus Format Modifier")
 
-# Define ONLY the exact list of columns you want to KEEP (in order)
-# Aap jo bhi format upload karenge, sirf yeh hi columns retain honge
+# Sirf yeh required columns hi output mein rahenge.
+# Extra koi bhi column hoga toh woh automatic remove ho jayega.
 REQUIRED_COLUMNS = [
     "Authors",
     "Author Full Names",
@@ -23,7 +23,7 @@ REQUIRED_COLUMNS = [
     "Page count",
     "Cited by",
     "DOI",
-    "Link",  # Agar input file mein Link nahi bhi hoga, toh khali column add ho jayega
+    "Link",  # "Correspondence Address" se pehle empty link column
     "Affiliations",
     "Authors with affiliations",
     "Abstract",
@@ -93,12 +93,17 @@ if uploaded_files:
     for uploaded_file in uploaded_files:
         df = load_csv_safely(uploaded_file)
 
-        # Ensure all REQUIRED_COLUMNS exist in df (create blank if missing)
+        # Ensure 'Link' column exists as empty if it is not in the uploaded file
+        if "Link" not in df.columns:
+            df["Link"] = ""
+
+        # Ensure all required columns exist in df (create blank if missing)
         for col in REQUIRED_COLUMNS:
             if col not in df.columns:
                 df[col] = ""
 
-        # Strictly filter & reorder dataframe to match required columns ONLY
+        # Strictly select and reorder ONLY the required columns
+        # (This automatically removes all other unwanted columns)
         df_cleaned = df[REQUIRED_COLUMNS]
 
         # Convert cleaned df to CSV string

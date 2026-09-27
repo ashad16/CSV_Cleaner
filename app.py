@@ -101,13 +101,18 @@ with st.sidebar:
     st.image("https://img.icons8.com/color/96/000000/ms-excel.png", width=60)
     st.title("Processing Rules")
     st.markdown("---")
-    st.info("ℹ️ **Rule Applied:** Any uploaded file will be stripped of all columns except **Link** (Empty) and **Correspondence Address**.")
+    st.info("""
+    ℹ️ **Applied Rules:**
+    1. Only **Link** (Empty) and **Correspondence Address** retained.
+    2. All completely blank rows & empty address lines removed.
+    3. Extra spacing between rows cleared.
+    """)
 
 # --- HERO HEADER ---
 st.markdown("""
     <div class="hero-container">
         <h1 class="hero-title">🔬 CSV Format Modifier</h1>
-        <p class="hero-subtitle">Upload any CSV format to retain only Link & Correspondence Address columns.</p>
+        <p.hero-subtitle">Retain Link & Address columns and purge all blank lines automatically.</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -134,14 +139,15 @@ if uploaded_files:
     processed_files = {}
 
     # --- CSV PROCESSING ENGINE ---
-    with st.spinner("Processing CSV files... Please wait."):
+    with st.spinner("Processing CSV files and purging blank lines... Please wait."):
         for uploaded_file in uploaded_files:
             df = load_csv_safely(uploaded_file)
             original_cols_count = len(df.columns)
+            original_rows_count = len(df)
 
             target_col = "Correspondence Address"
 
-            # Check if target column exists, otherwise create it empty
+            # Check if target column exists
             if target_col in df.columns:
                 corr_data = df[target_col]
             else:
@@ -153,6 +159,21 @@ if uploaded_files:
                 "Correspondence Address": corr_data
             })
 
+            # --- BLANK ROW & SPACING CLEANUP ---
+            # 1. Clean whitespace from strings
+            df_cleaned["Correspondence Address"] = df_cleaned["Correspondence Address"].astype(str).str.strip()
+
+            # 2. Replace empty strings / 'nan' with actual NaN for dropping
+            df_cleaned["Correspondence Address"].replace(["", "nan", "None", "NaN"], pd.NA, inplace=True)
+
+            # 3. Drop all rows where 'Correspondence Address' is blank/NaN
+            df_cleaned.dropna(subset=["Correspondence Address"], inplace=True)
+
+            # 4. Reset index for seamless continuity
+            df_cleaned.reset_index(drop=True, inplace=True)
+
+            cleaned_rows_count = len(df_cleaned)
+
             # Convert cleaned df to CSV string
             csv_buffer = io.StringIO()
             df_cleaned.to_csv(csv_buffer, index=False, encoding="utf-8")
@@ -162,7 +183,10 @@ if uploaded_files:
                 "df": df_cleaned,
                 "csv_data": csv_buffer.getvalue(),
                 "original_cols": original_cols_count,
-                "cleaned_cols": len(df_cleaned.columns)
+                "cleaned_cols": len(df_cleaned.columns),
+                "original_rows": original_rows_count,
+                "cleaned_rows": cleaned_rows_count,
+                "removed_blanks": original_rows_count - cleaned_rows_count
             }
 
     # ZIP File Generation
@@ -175,13 +199,17 @@ if uploaded_files:
     st.markdown("---")
     st.subheader("2. Summary & Downloads")
     
-    col1, col2, col3 = st.columns(3)
+    total_removed_blanks = sum(info["removed_blanks"] for info in processed_files.values())
+
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric(label="Uploaded Files", value=total_files)
     with col2:
-        st.metric(label="Processing Status", value="Complete ✅")
+        st.metric(label="Status", value="Complete ✅")
     with col3:
         st.metric(label="Columns Retained", value="2 (Link & Address)")
+    with col4:
+        st.metric(label="Blank Rows Removed", value=total_removed_blanks)
 
     st.write("")
 
@@ -199,7 +227,7 @@ if uploaded_files:
 
     # --- TABBED PREVIEW & INDIVIDUAL DOWNLOADS ---
     st.subheader("3. Preview & Individual Downloads")
-    st.caption("Inspect the processed output datasets below.")
+    st.caption("Inspect the cleaned datasets (empty lines removed).")
 
     # Render files inside tabs to avoid clutter
     tab_labels = [f"📄 {name}" for name in processed_files.keys()]
@@ -208,10 +236,14 @@ if uploaded_files:
     for tab, (file_name, file_info) in zip(tabs, processed_files.items()):
         with tab:
             st.markdown(f"**Filename:** `{file_name}`")
-            st.caption(f"Original Columns Count: **{file_info['original_cols']}** | Columns Kept: **{file_info['cleaned_cols']}**")
+            st.caption(
+                f"Original Rows: **{file_info['original_rows']}** | "
+                f"Cleaned Rows: **{file_info['cleaned_rows']}** | "
+                f"Blank Lines Removed: **{file_info['removed_blanks']}**"
+            )
             
             # Preview dataframe
-            st.dataframe(file_info["df"].head(5), use_container_width=True)
+            st.dataframe(file_info["df"].head(10), use_container_width=True)
 
             # Individual File Download Button
             st.download_button(
@@ -225,4 +257,4 @@ if uploaded_files:
 
 else:
     # Empty State Guidance Card
-    st.info("👆 Upload one or more CSV files to isolate Link and Correspondence Address columns.")
+    st.info("👆 Upload one or more CSV files to clean empty lines and isolate Link & Address columns.")

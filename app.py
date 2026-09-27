@@ -5,7 +5,7 @@ import streamlit as st
 
 # Set page config
 st.set_page_config(
-    page_title="Scopus CSV Cleaning Tool",
+    page_title="CSV Link & Address Isolator",
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -54,26 +54,9 @@ st.markdown("""
         font-weight: 600;
         transition: all 0.2s ease;
     }
-    
-    /* Card Container */
-    .css-card {
-        background-color: #ffffff;
-        padding: 1.5rem;
-        border-radius: 10px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.03);
-        margin-bottom: 1rem;
-    }
     </style>
 """, unsafe_allow_html=True)
 
-# Default columns to remove
-DEFAULT_COLUMNS_TO_REMOVE = [
-    "Editors", "Publisher", "ISSN", "ISBN", "CODEN",
-    "PubMed ID", "Language of Original", "Language of Original Document",
-    "Abbreviated Source Title", "Document Type", "Publication Stage",
-    "Open Access", "Source", "EID"
-]
 
 def load_csv_safely(uploaded_file):
     """Safely reads uploaded CSV by testing encodings, auto-detecting separators"""
@@ -112,29 +95,19 @@ def load_csv_safely(uploaded_file):
         on_bad_lines="skip",
     )
 
+
 # --- SIDEBAR CONFIGURATION ---
 with st.sidebar:
     st.image("https://img.icons8.com/color/96/000000/ms-excel.png", width=60)
-    st.title("Settings & Options")
+    st.title("Processing Rules")
     st.markdown("---")
-    
-    st.subheader("🧹 Cleaning Rules")
-    st.caption("Customize which default Scopus metadata columns should be stripped.")
-    
-    columns_to_remove = st.multiselect(
-        "Columns to remove:",
-        options=DEFAULT_COLUMNS_TO_REMOVE,
-        default=DEFAULT_COLUMNS_TO_REMOVE
-    )
-    
-    st.markdown("---")
-    st.info("💡 **Tip:** Standard Scopus exports often include non-essential metadata. Removing them reduces file size significantly.")
+    st.info("ℹ️ **Rule Applied:** Any uploaded file will be stripped of all columns except **Link** (Empty) and **Correspondence Address**.")
 
 # --- HERO HEADER ---
 st.markdown("""
     <div class="hero-container">
-        <h1 class="hero-title">🔬 Scopus Format Modifier</h1>
-        <p class="hero-subtitle">Upload, clean, and reformat Scopus export files in batch effortlessly.</p>
+        <h1 class="hero-title">🔬 CSV Format Modifier</h1>
+        <p class="hero-subtitle">Upload any CSV format to retain only Link & Correspondence Address columns.</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -144,7 +117,7 @@ uploaded_files = st.file_uploader(
     "Choose CSV files (Max 20 files at a time)",
     type=["csv"],
     accept_multiple_files=True,
-    help="Drag and drop your raw Scopus export CSV files here."
+    help="Drag and drop your raw CSV files here."
 )
 
 if uploaded_files:
@@ -164,30 +137,32 @@ if uploaded_files:
     with st.spinner("Processing CSV files... Please wait."):
         for uploaded_file in uploaded_files:
             df = load_csv_safely(uploaded_file)
+            original_cols_count = len(df.columns)
 
-            # 1. Remove unwanted columns
-            cols_to_drop = [col for col in columns_to_remove if col in df.columns]
-            df.drop(columns=cols_to_drop, inplace=True)
-
-            # 2. Insert 'Link' column before 'Correspondence Address'
             target_col = "Correspondence Address"
-            if "Link" not in df.columns:
-                if target_col in df.columns:
-                    idx = df.columns.get_loc(target_col)
-                    df.insert(idx, "Link", "")
-                else:
-                    df["Link"] = ""
+
+            # Check if target column exists, otherwise create it empty
+            if target_col in df.columns:
+                corr_data = df[target_col]
+            else:
+                corr_data = pd.Series([""] * len(df))
+
+            # Reconstruct DataFrame with ONLY 'Link' and 'Correspondence Address'
+            df_cleaned = pd.DataFrame({
+                "Link": [""] * len(df),
+                "Correspondence Address": corr_data
+            })
 
             # Convert cleaned df to CSV string
             csv_buffer = io.StringIO()
-            df.to_csv(csv_buffer, index=False, encoding="utf-8")
+            df_cleaned.to_csv(csv_buffer, index=False, encoding="utf-8")
 
             # Save result to dictionary
             processed_files[uploaded_file.name] = {
-                "df": df,
+                "df": df_cleaned,
                 "csv_data": csv_buffer.getvalue(),
-                "original_cols": len(df.columns) + len(cols_to_drop),
-                "cleaned_cols": len(df.columns)
+                "original_cols": original_cols_count,
+                "cleaned_cols": len(df_cleaned.columns)
             }
 
     # ZIP File Generation
@@ -206,7 +181,7 @@ if uploaded_files:
     with col2:
         st.metric(label="Processing Status", value="Complete ✅")
     with col3:
-        st.metric(label="Target Columns Filtered", value=len(columns_to_remove))
+        st.metric(label="Columns Retained", value="2 (Link & Address)")
 
     st.write("")
 
@@ -214,7 +189,7 @@ if uploaded_files:
     st.download_button(
         label=f"📦 Download All ({total_files}) Cleaned CSVs (ZIP Archive)",
         data=zip_buffer.getvalue(),
-        file_name="cleaned_scopus_files.zip",
+        file_name="cleaned_csv_files.zip",
         mime="application/zip",
         type="primary",
         use_container_width=True
@@ -224,7 +199,7 @@ if uploaded_files:
 
     # --- TABBED PREVIEW & INDIVIDUAL DOWNLOADS ---
     st.subheader("3. Preview & Individual Downloads")
-    st.caption("Inspect the top 5 rows of each processed dataset below.")
+    st.caption("Inspect the processed output datasets below.")
 
     # Render files inside tabs to avoid clutter
     tab_labels = [f"📄 {name}" for name in processed_files.keys()]
@@ -233,11 +208,7 @@ if uploaded_files:
     for tab, (file_name, file_info) in zip(tabs, processed_files.items()):
         with tab:
             st.markdown(f"**Filename:** `{file_name}`")
-            
-            # File info badges
-            c1, c2 = st.columns([3, 1])
-            with c1:
-                st.caption(f"Original Columns: **{file_info['original_cols']}** | Cleaned Columns: **{file_info['cleaned_cols']}**")
+            st.caption(f"Original Columns Count: **{file_info['original_cols']}** | Columns Kept: **{file_info['cleaned_cols']}**")
             
             # Preview dataframe
             st.dataframe(file_info["df"].head(5), use_container_width=True)
@@ -254,4 +225,4 @@ if uploaded_files:
 
 else:
     # Empty State Guidance Card
-    st.info("👆 Upload one or more Scopus CSV files to begin formatting.")
+    st.info("👆 Upload one or more CSV files to isolate Link and Correspondence Address columns.")

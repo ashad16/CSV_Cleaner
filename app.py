@@ -13,10 +13,10 @@ st.set_page_config(
 
 # --- USER CREDENTIALS ---
 USER_CREDENTIALS = {
-    "admin": "admin123",
     "user": "password123",
     "noor": "noor123",
     "safdar": "safdar123",
+    "ashhad": "admin125
 }
 
 # --- SESSION STATE INITIALIZATION ---

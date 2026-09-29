@@ -3,13 +3,94 @@ import zipfile
 import pandas as pd
 import streamlit as st
 
-# Set page config
+# --- PAGE CONFIGURATION ---
 st.set_page_config(
     page_title="CSV Link & Address Isolator",
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# --- USER CREDENTIALS ---
+USER_CREDENTIALS = {
+    "admin": "admin123",
+    "user": "password123"
+}
+
+# --- SESSION STATE INITIALIZATION ---
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
+
+# --- LOGIN & LOGOUT HELPERS ---
+def login():
+    username_input = st.session_state.get("login_username", "").strip()
+    password_input = st.session_state.get("login_password", "").strip()
+    
+    if username_input in USER_CREDENTIALS and USER_CREDENTIALS[username_input] == password_input:
+        st.session_state.authenticated = True
+        st.session_state.username = username_input
+        st.session_state.login_error = False
+    else:
+        st.session_state.login_error = True
+
+def logout():
+    st.session_state.authenticated = False
+    st.session_state.username = ""
+    st.session_state.pop("login_username", None)
+    st.session_state.pop("login_password", None)
+
+
+# --- LOGIN INTERFACE ---
+if not st.session_state.authenticated:
+    st.markdown("""
+        <style>
+        .login-card {
+            max-width: 420px;
+            margin: 5rem auto 2rem auto;
+            padding: 2.5rem;
+            border-radius: 12px;
+            background-color: #ffffff;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border: 1px solid #e0e0e0;
+        }
+        .login-title {
+            text-align: center;
+            color: #1e3c72;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .login-subtitle {
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown('<div class="login-title">🔒 Dashboard Access</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-subtitle">Please enter your credentials to proceed.</div>', unsafe_allow_html=True)
+        
+        with st.form("login_form"):
+            st.text_input("Username", key="login_username")
+            st.text_input("Password", type="password", key="login_password")
+            submit_button = st.form_submit_button("Sign In", use_container_width=True, type="primary")
+
+            if submit_button:
+                login()
+
+        if st.session_state.get("login_error", False):
+            st.error("❌ Invalid username or password.")
+            
+    st.stop()
+
+
+# --- DASHBOARD APP (AUTHENTICATED USERS) ---
 
 # Custom CSS for styling
 st.markdown("""
@@ -99,8 +180,10 @@ def load_csv_safely(uploaded_file):
 # --- SIDEBAR CONFIGURATION ---
 with st.sidebar:
     st.image("https://img.icons8.com/color/96/000000/ms-excel.png", width=60)
-    st.title("Processing Rules")
+    st.markdown(f"**Logged in as:** `{st.session_state.username}`")
+    st.button("Logout", on_click=logout, type="secondary")
     st.markdown("---")
+    st.title("Processing Rules")
     st.info("""
     ℹ️ **Applied Rules:**
     1. Only **Link** (Empty) and **Correspondence Address** retained.
@@ -112,7 +195,7 @@ with st.sidebar:
 st.markdown("""
     <div class="hero-container">
         <h1 class="hero-title">🔬 CSV Format Modifier</h1>
-        <p.hero-subtitle">Retain Link & Address columns and purge all blank lines automatically.</p>
+        <p class="hero-subtitle">Retain Link & Address columns and purge all blank lines automatically.</p>
     </div>
 """, unsafe_allow_html=True)
 

@@ -16,7 +16,7 @@ USER_CREDENTIALS = {
     "user": "password123",
     "noor": "noor123",
     "safdar": "safdar123",
-    "Ashhad": "admin125
+    "Ashhad": "admin125",
 }
 
 # --- SESSION STATE INITIALIZATION ---
